@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CRC (초보 러닝 크루) 실시간 훈련 보드</title>
+  
+  <!-- App / PWA Meta Tags (앱처럼 보이게 하는 필수 태그) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b0f19">
+  <link rel="apple-touch-icon" href="https://api.dicebear.com/7.x/shapes/svg?seed=CRC&backgroundColor=0b0f19&primaryColor=f97316">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { red: '#ef4444', orange: '#f97316', green: '#10b981', blue: '#06b6d4', purple: '#8b5cf6' }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; -webkit-font-smoothing: antialiased; background-color: #0b0f19; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    .editable-field { transition: all 0.2s ease; min-height: 1.25rem; border-radius: 4px; display: inline-block; }
+    .operator-enabled .editable-field:hover { outline: 2px dashed rgba(99, 102, 241, 0.5); outline-offset: 4px; background-color: rgba(30, 41, 59, 0.4); cursor: text; }
+    .operator-enabled .editable-field:focus { outline: 2px solid rgba(99, 102, 241, 0.9); outline-offset: 4px; background-color: rgba(30, 41, 59, 0.8); }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { background-color: white !important; color: black !important; }
+      .slide-container { display: block !important; opacity: 1 !important; page-break-after: always; }
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white pb-6 sm:pb-0 pt-safe-top">
+
+  <!-- ================= HEADER ================= -->
+  <header class="no-print bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+        <div class="flex items-center gap-2">
+          <div class="editable-field bg-gradient-to-tr from-brand-orange to-brand-red p-2 rounded-lg text-white font-black text-xs uppercase tracking-wider" contenteditable="false" id="header-badge">Point</div>
+          <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+            <span class="editable-field px-1" contenteditable="false" id="edit-header-title">CRC (초보 러닝 크루) 평일 훈련 보드</span>
+          </h1>
+          <div id="operator-badge" onclick="window.logoutAdmin()" class="hidden flex items-center gap-1 text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full cursor-pointer transition-colors" title="클릭 시 운영자 모드 해제">
+            <i data-lucide="unlock" class="w-3 h-3"></i> 운영자 작동중 <span class="underline ml-0.5 opacity-70">해제</span>
+          </div>
+        </div>
+        <span id="header-counter" class="sm:hidden text-xs font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">1 / 5</span>
+      </div>
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <button id="coach-lab-btn" onclick="window.toggleCoachLab()" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all shadow-lg shadow-indigo-600/20">
+          <i data-lucide="flask-conical" id="coach-btn-icon" class="w-4 h-4 text-indigo-200"></i> AI 연구실
+        </button>
+        <button onclick="window.print()" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-lg border border-slate-700 transition-all">
+          <i data-lucide="printer" class="w-4 h-4"></i> PDF/출력
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MAIN SLIDES ================= -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-4 sm:py-6 flex flex-col justify-center pb-safe-bottom">
+    <div id="gesture-area" class="bg-slate-900/50 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-slate-800 p-4 sm:p-8 min-h-[500px] sm:min-h-[620px] flex flex-col justify-between shadow-2xl relative overflow-hidden transition-all">
+      <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-red/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+      <!-- SLIDE 1: COVER -->
+      <section id="slide-1" class="slide-element flex flex-col justify-between h-full gap-6">
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 text-brand-orange font-bold text-xs sm:text-sm tracking-widest uppercase">
+            <span class="w-2 h-2 rounded-full bg-brand-orange animate-ping"></span>
+            <span class="editable-field" contenteditable="false" id="txt-sub-headline">점진적 빌드업 세션</span>
+          </div>
+          <h2 class="text-3xl sm:text-5xl font-black text-white leading-tight tracking-tight">
+            <span class="editable-field block" contenteditable="false" id="txt-main-title">평일 야간 포인트 훈련</span>
+            <span class="editable-field block bg-gradient-to-r from-brand-orange via-brand-red to-brand-purple bg-clip-text text-transparent" contenteditable="false" id="txt-main-accent">대운동장 빌드업 지속주</span>
+          </h2>
+          <p class="editable-field text-slate-400 text-sm sm:text-base max-w-2xl leading-relaxed" contenteditable="false" id="txt-main-desc">
+            스피드와 지구력을 점검하는 날입니다. 초반에는 차분하게 페이스를 다운시키고, 후반 2~3km를 강력하게 스퍼트하여 한계를 돌파하세요!
+          </p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+          <div class="bg-slate-850/60 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+            <div class="p-3 bg-brand-red/10 text-brand-red rounded-lg"><i data-lucide="calendar" class="w-5 h-5"></i></div>
+            <div>
+              <div class="editable-field text-xs text-slate-500 font-medium" contenteditable="false" id="lbl-meta-date">훈련 일시</div>
+              <div class="editable-field text-sm font-bold text-slate-200 block" contenteditable="false" id="txt-meta-date">매주 수요일 20:00</div>
+            </div>
+          </div>
+          <div class="bg-slate-850/60 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+            <div class="p-3 bg-brand-orange/10 text-brand-orange rounded-lg"><i data-lucide="map-pin" class="w-5 h-5"></i></div>
+            <div>
+              <div class="editable-field text-xs text-slate-500 font-medium" contenteditable="false" id="lbl-meta-loc">훈련 장소</div>
+              <div class="editable-field text-sm font-bold text-slate-200 block" contenteditable="false" id="txt-meta-loc">경북대학교 대운동장</div>
+            </div>
+          </div>
+          <div class="bg-slate-850/60 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+            <div class="p-3 bg-brand-green/10 text-brand-green rounded-lg"><i data-lucide="car" class="w-5 h-5"></i></div>
+            <div>
+              <div class="editable-field text-xs text-slate-500 font-medium" contenteditable="false" id="lbl-meta-parking">주차 안내</div>
+              <div class="editable-field text-sm font-bold text-slate-200 block" contenteditable="false" id="txt-meta-parking">GS25 서문점 주변 및 교내 (유료)</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-slate-900/60 p-4 sm:p-5 rounded-2xl border border-slate-800/80">
+          <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3 flex items-center gap-1.5">
+            <i data-lucide="clock" class="w-4 h-4 text-brand-orange"></i> <span class="editable-field" contenteditable="false" id="lbl-stage-title">훈련 진행 순서</span>
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs sm:text-sm">
+            <div class="p-2 bg-slate-800/40 rounded-lg">
+              <span class="editable-field block text-[10px] text-slate-500 font-bold" contenteditable="false" id="txt-stage1-tag">STAGE 01</span>
+              <span class="editable-field font-bold text-slate-300" contenteditable="false" id="txt-stage1-title">스트레칭</span>
+            </div>
+            <div class="p-2 bg-slate-800/40 rounded-lg">
+              <span class="editable-field block text-[10px] text-slate-500 font-bold" contenteditable="false" id="txt-stage2-tag">STAGE 02</span>
+              <span class="editable-field font-bold text-slate-300" contenteditable="false" id="txt-stage2-title">피치 & 드릴 조깅</span>
+            </div>
+            <div class="p-2 bg-indigo-950/30 border border-indigo-500/20 rounded-lg">
+              <span class="editable-field block text-[10px] text-indigo-400 font-bold" contenteditable="false" id="txt-stage3-tag">MAIN METRIC</span>
+              <span class="editable-field font-bold text-indigo-300" contenteditable="false" id="txt-stage3-title">8~10km 빌드업주</span>
+            </div>
+            <div class="p-2 bg-slate-800/40 rounded-lg">
+              <span class="editable-field block text-[10px] text-slate-500 font-bold" contenteditable="false" id="txt-stage4-tag">STAGE 04</span>
+              <span class="editable-field font-bold text-slate-300" contenteditable="false" id="txt-stage4-title">쿨다운 & 스트레칭</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: OVERVIEW GRID -->
+      <section id="slide-2" class="slide-element hidden flex flex-col justify-between h-full gap-4">
+        <div class="space-y-1">
+          <div class="text-brand-green font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+            <span class="editable-field" contenteditable="false" id="lbl-s2-subtitle">전체 그룹 요약 가이드</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+            <span class="editable-field" contenteditable="false" id="lbl-s2-title">그룹별 빌드업 페이스 매트릭스</span>
+            <span id="edit-notice-hint" class="text-xs font-normal text-slate-500">(운영자 로그인 시 실시간 편집 활성화)</span>
+          </h2>
+        </div>
+        
+        <!-- Dynamic Grid Container -->
+        <div id="overview-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 my-1 overflow-y-auto max-h-[360px] sm:max-h-none lg:overflow-visible pr-1">
+          <!-- Static Group 1 -->
+          <div class="bg-slate-900/80 border-t-4 border-t-brand-red border-x border-b border-slate-800 p-3 sm:p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="editable-field bg-brand-red/10 text-brand-red text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="false" id="txt-g1-badge">1그룹 (10km)</span>
+              </div>
+              <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="false" id="txt-g1-runners">라크, 새우, 재희, 완근</p>
+            </div>
+            <div class="bg-red-500/5 border border-red-500/10 p-2 rounded text-[11px] space-y-1">
+              <span class="editable-field text-[9px] text-brand-red font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g1-notice-tag">🗒️ 그룹 특이사항</span>
+              <p class="editable-field text-slate-300 font-medium leading-relaxed italic bg-slate-950/40 p-1.5 rounded min-h-[1.5rem]" contenteditable="false" id="txt-g1-notice">정확한 빌드업 리딩에 집중</p>
+            </div>
+            <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+              <div>
+                <span class="editable-field block text-[9px] text-brand-red font-black" contenteditable="false" id="lbl-g1-team">TEAM SCHEDULE</span>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g1-team1">1~4k: 4'40" <span class="text-[10px] text-slate-400">(110-114초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g1-team2">5~8k: 4'25" <span class="text-[10px] text-slate-400">(104-108초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g1-team3">9~10k: 4'05" <span class="text-[10px] text-emerald-400 font-bold">(96-100초)</span></p>
+              </div>
+            </div>
+          </div>
+          <!-- Static Group 2 -->
+          <div class="bg-slate-900/80 border-t-4 border-t-brand-orange border-x border-b border-slate-800 p-3 sm:p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="editable-field bg-brand-orange/10 text-brand-orange text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="false" id="txt-g2-badge">2그룹 (10km)</span>
+              </div>
+              <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="false" id="txt-g2-runners">럭키, 짱우, 뽀야, 진주...</p>
+            </div>
+            <div class="bg-orange-500/5 border border-orange-500/10 p-2 rounded text-[11px] space-y-1">
+              <span class="editable-field text-[9px] text-brand-orange font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g2-notice-tag">🗒️ 그룹 특이사항</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g2-notice">일정한 오차 주행 목표</p>
+            </div>
+            <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+              <div>
+                <span class="editable-field block text-[9px] text-brand-orange font-black" contenteditable="false" id="lbl-g2-team">TEAM SCHEDULE</span>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g2-team1">1~4k: 4'55" <span class="text-[10px] text-slate-400">(116-120초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g2-team2">5~7k: 4'40" <span class="text-[10px] text-slate-400">(110-114초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g2-team3">8~10k: 4'20" <span class="text-[10px] text-emerald-400 font-bold">(102-106초)</span></p>
+              </div>
+            </div>
+          </div>
+          <!-- Static Group 3 -->
+          <div class="bg-slate-900/80 border-t-4 border-t-brand-green border-x border-b border-slate-800 p-3 sm:p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="editable-field bg-brand-green/10 text-brand-green text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="false" id="txt-g3-badge">3그룹 (8km)</span>
+              </div>
+              <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="false" id="txt-g3-runners">비니, 짱초, 욱이</p>
+            </div>
+            <div class="bg-emerald-500/5 border border-emerald-500/10 p-2 rounded text-[11px] space-y-1">
+              <span class="editable-field text-[9px] text-brand-green font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g3-notice-tag">🗒️ 그룹 특이사항</span>
+              <p class="editable-field text-slate-300 font-medium leading-relaxed italic bg-slate-950/40 p-1.5 rounded min-h-[1.5rem]" contenteditable="false" id="txt-g3-notice">체력 안배 후 라스트 스퍼트</p>
+            </div>
+            <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+              <div>
+                <span class="editable-field block text-[9px] text-brand-green font-black" contenteditable="false" id="lbl-g3-team">TEAM SCHEDULE</span>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g3-team1">1~3k: 5'20" <span class="text-[10px] text-slate-400">(126-130초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g3-team2">4~6k: 5'05" <span class="text-[10px] text-slate-400">(120-124초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g3-team3">7~8k: 4'45" <span class="text-[10px] text-emerald-400 font-bold">(112-116초)</span></p>
+              </div>
+            </div>
+          </div>
+          <!-- Static Group 4 -->
+          <div class="bg-slate-900/80 border-t-4 border-t-brand-blue border-x border-b border-slate-800 p-3 sm:p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="editable-field bg-brand-blue/10 text-brand-blue text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="false" id="txt-g4-badge">4그룹 (6km)</span>
+              </div>
+              <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="false" id="txt-g4-runners">촙촙, 주주, 구정, 랭이</p>
+            </div>
+            <div class="bg-cyan-500/5 border border-cyan-500/10 p-2 rounded text-[11px] space-y-1">
+              <span class="editable-field text-[9px] text-brand-blue font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g4-notice-tag">🗒️ 그룹 특이사항</span>
+              <p class="editable-field text-slate-300 font-medium leading-relaxed italic bg-slate-950/40 p-1.5 rounded min-h-[1.5rem]" contenteditable="false" id="txt-g4-notice">자세 교정 진행 후 메인 스케줄 시작</p>
+            </div>
+            <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+              <div>
+                <span class="editable-field block text-[9px] text-brand-blue font-black" contenteditable="false" id="lbl-g4-team">TEAM SCHEDULE</span>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g4-team1">1~2k: 5'55" <span class="text-[10px] text-slate-400">(140-144초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g4-team2">3~4k: 5'40" <span class="text-[10px] text-slate-400">(134-138초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g4-team3">5~6k: 5'20" <span class="text-[10px] text-emerald-400 font-bold">(126-130초)</span></p>
+              </div>
+            </div>
+          </div>
+          <!-- Static Group 5 -->
+          <div class="bg-slate-900/80 border-t-4 border-t-brand-purple border-x border-b border-slate-800 p-3 sm:p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="editable-field bg-brand-purple/10 text-brand-purple text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="false" id="txt-g5-badge">5그룹 (6km)</span>
+              </div>
+              <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="false" id="txt-g5-runners">이쯔 (부상조절)</p>
+            </div>
+            <div class="bg-purple-500/5 border border-purple-500/10 p-2 rounded text-[11px] space-y-1">
+              <span class="editable-field text-[9px] text-brand-purple font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g5-notice-tag">🗒️ 그룹 특이사항</span>
+              <p class="editable-field text-slate-300 font-medium leading-relaxed italic bg-slate-950/40 p-1.5 rounded min-h-[1.5rem]" contenteditable="false" id="txt-g5-notice">자세 교정 진행 후 스케줄 시작</p>
+            </div>
+            <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+              <div>
+                <span class="editable-field block text-[9px] text-brand-purple font-black" contenteditable="false" id="lbl-g5-team">TEAM SCHEDULE</span>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g5-team1">1~2k: 6'40" <span class="text-[10px] text-slate-400">(158-162초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g5-team2">3~4k: 6'20" <span class="text-[10px] text-slate-400">(150-154초)</span></p>
+                <p class="editable-field text-slate-200" contenteditable="false" id="txt-g5-team3">5~6k: 6'00" <span class="text-[10px] text-emerald-400 font-bold">(142-146초)</span></p>
+              </div>
+            </div>
+          </div>
+          <!-- Custom Groups appended here by JS -->
+        </div>
+
+        <div class="bg-blue-950/20 border border-blue-500/20 p-3 rounded-xl flex items-center gap-2 text-xs text-blue-300 mt-2">
+          <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+          <span class="editable-field" contenteditable="false" id="txt-bottom-info">처음부터 오버페이스하면 후반 빌드업 구간에서 무너집니다. 편안하게 시작해주세요!</span>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: GROUP 1 & 2 DETAILS -->
+      <section id="slide-3" class="slide-element hidden flex flex-col justify-between h-full gap-4">
+        <div class="space-y-1">
+          <div class="editable-field text-brand-red font-bold text-xs uppercase tracking-wider" contenteditable="false" id="txt-s3-tag">Group detailed tracking</div>
+          <h2 class="editable-field text-xl sm:text-2xl font-black text-white" contenteditable="false" id="txt-s3-title">1그룹 & 2그룹 빌드업 상세 분석</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-2 overflow-y-auto max-h-[380px] sm:max-h-none pr-1">
+          <!-- Group 1 Area -->
+          <div class="bg-slate-850/40 rounded-2xl p-4 border border-slate-800 space-y-3 shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-brand-red"></span>
+                <h3 class="editable-field text-base font-bold text-slate-200" contenteditable="false" id="txt-g1-s3-title">1그룹 (라크, 새우, 재희, 완근)</h3>
+              </div>
+              <span class="editable-field text-xs bg-brand-red/10 text-brand-red font-bold px-2.5 py-0.5 rounded" contenteditable="false" id="txt-g1-s3-target">목표: 10km</span>
+            </div>
+
+            <div class="bg-red-500/5 border border-red-500/10 p-2.5 rounded-xl text-xs space-y-1">
+              <span class="editable-field text-[10px] text-brand-red font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g1-s3-notice-tag">📢 그룹 특이사항 / 개별 안내</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g1-s3-notice">6월 한 달간의 스피드와 지구력을 최종 점검하는 빌드업 세션입니다.</p>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="editable-field text-xs font-bold text-slate-400 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g1-s3-team-tag">팀 스케줄 (훈련 참석 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g1-s3-t1-head">1~4km (빌드업 시작)</span>
+                  <span class="editable-field font-bold text-brand-red" contenteditable="false" id="txt-g1-team-pace1">110초~114초 (4'40"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g1-s3-t2-head">5~8km (목표 페이스)</span>
+                  <span class="editable-field font-bold text-slate-200" contenteditable="false" id="txt-g1-team-pace2">104초~108초 (4'25"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs border border-emerald-500/20">
+                  <span class="editable-field font-bold text-emerald-400" contenteditable="false" id="lbl-g1-s3-t3-head">9~10km (라스트 스퍼트)</span>
+                  <span class="editable-field font-black text-emerald-400" contenteditable="false" id="txt-g1-team-pace3">96초~100초 (4'05"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2 border-t border-slate-800/80 pt-2">
+              <h4 class="editable-field text-xs font-bold text-slate-500 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g1-s3-ind-tag">개인 스케줄 (훈련 불참 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g1-s3-i1-head">1~4km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g1-ind-pace1">112초~116초 (4'45"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g1-s3-i2-head">5~8km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g1-ind-pace2">108초~112초 (4'35"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g1-s3-i3-head">9~10km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g1-ind-pace3">100초~104초 (4'15"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 2 Area -->
+          <div class="bg-slate-850/40 rounded-2xl p-4 border border-slate-800 space-y-3 shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-brand-orange"></span>
+                <h3 class="editable-field text-base font-bold text-slate-200" contenteditable="false" id="txt-g2-s3-title">2그룹 (럭키, 짱우, 뽀야, 진주, 탁구, 승민)</h3>
+              </div>
+              <span class="editable-field text-xs bg-brand-orange/10 text-brand-orange font-bold px-2.5 py-0.5 rounded" contenteditable="false" id="txt-g2-s3-target">목표: 10km</span>
+            </div>
+
+            <div class="bg-orange-500/5 border border-orange-500/10 p-2.5 rounded-xl text-xs space-y-1">
+              <span class="editable-field text-[10px] text-brand-orange font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g2-s3-notice-tag">📢 그룹 특이사항 / 개별 안내</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g2-s3-notice">어깨 힘을 풀고 리듬을 살려 마지막 2km에 가속을 시도합니다.</p>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="editable-field text-xs font-bold text-slate-400 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g2-s3-team-tag">팀 스케줄 (훈련 참석 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g2-s3-t1-head">1~4km (빌드업 시작)</span>
+                  <span class="editable-field font-bold text-brand-orange" contenteditable="false" id="txt-g2-team-pace1">116초~120초 (4'55"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g2-s3-t2-head">5~7km (목표 페이스)</span>
+                  <span class="editable-field font-bold text-slate-200" contenteditable="false" id="txt-g2-team-pace2">110초~114초 (4'40"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs border border-emerald-500/20">
+                  <span class="editable-field font-bold text-emerald-400" contenteditable="false" id="lbl-g2-s3-t3-head">8~10km (라스트 스퍼트)</span>
+                  <span class="editable-field font-black text-emerald-400" contenteditable="false" id="txt-g2-team-pace3">102초~106초 (4'20"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2 border-t border-slate-800/80 pt-2">
+              <h4 class="editable-field text-xs font-bold text-slate-500 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g2-s3-ind-tag">개인 스케줄 (훈련 불참 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g2-s3-i1-head">1~4km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g2-ind-pace1">120초~124초 (5'05"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g2-s3-i2-head">5~8km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g2-ind-pace2">114초~118초 (4'50"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g2-s3-i3-head">9~10km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g2-ind-pace3">106초~110초 (4'30"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: GROUP 3 & 4 DETAILS -->
+      <section id="slide-4" class="slide-element hidden flex flex-col justify-between h-full gap-4">
+        <div class="space-y-1">
+          <div class="editable-field text-brand-green font-bold text-xs uppercase tracking-wider" contenteditable="false" id="txt-s4-tag">Group detailed tracking</div>
+          <h2 class="editable-field text-xl sm:text-2xl font-black text-white" contenteditable="false" id="txt-s4-title">3그룹 & 4그룹 상세 분석 및 가이드</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-2 overflow-y-auto max-h-[380px] sm:max-h-none pr-1">
+          <!-- Group 3 Area -->
+          <div class="bg-slate-850/40 rounded-2xl p-4 border border-slate-800 space-y-4 shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-brand-green"></span>
+                <h3 class="editable-field text-base font-bold text-slate-200" contenteditable="false" id="txt-g3-s4-title">3그룹 (비니, 짱초, 욱이)</h3>
+              </div>
+              <span class="editable-field text-xs bg-brand-green/10 text-brand-green font-bold px-2.5 py-0.5 rounded" contenteditable="false" id="txt-g3-s4-target">목표: 8km</span>
+            </div>
+
+            <div class="bg-emerald-500/5 border border-emerald-500/10 p-2.5 rounded-xl text-xs space-y-1">
+              <span class="editable-field text-[10px] text-brand-green font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g3-s4-notice-tag">📢 그룹 특이사항 / 개별 안내</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g3-s4-notice">안정적인 호흡을 유지하며 서서히 전력을 올려 완주하는 플랜입니다.</p>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="editable-field text-xs font-bold text-slate-400 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g3-s4-team-tag">팀 스케줄 (훈련 참석 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g3-s4-t1-head">1~3km (시작)</span>
+                  <span class="editable-field font-bold text-brand-green" contenteditable="false" id="txt-g3-team-pace1">126초~130초 (5'20"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g3-s4-t2-head">4~6km (메인)</span>
+                  <span class="editable-field font-bold text-slate-200" contenteditable="false" id="txt-g3-team-pace2">120초~124초 (5'05"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs border border-emerald-500/20">
+                  <span class="editable-field font-bold text-emerald-400" contenteditable="false" id="lbl-g3-s4-t3-head">7~8km (스퍼트)</span>
+                  <span class="editable-field font-black text-emerald-400" contenteditable="false" id="txt-g3-team-pace3">112초~116초 (4'45"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2 border-t border-slate-800/80 pt-2">
+              <h4 class="editable-field text-xs font-bold text-slate-500 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g3-s4-ind-tag">개인 스케줄 (훈련 불참 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g3-s4-i1-head">1~3km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g3-ind-pace1">130초~134초 (5'30"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g3-s4-i2-head">4~6km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g3-ind-pace2">124초~128초 (5'15"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g3-s4-i3-head">7~8km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g3-ind-pace3">116초~120초 (4'55"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 4 Area -->
+          <div class="bg-slate-850/40 rounded-2xl p-4 border border-slate-800 space-y-4 shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-brand-blue"></span>
+                <h3 class="editable-field text-base font-bold text-slate-200" contenteditable="false" id="txt-g4-s4-title">4그룹 (촙촙, 주주, 구정, 랭이)</h3>
+              </div>
+              <span class="editable-field text-xs bg-brand-blue/10 text-brand-blue font-bold px-2.5 py-0.5 rounded" contenteditable="false" id="txt-g4-s4-target">목ref: 6km</span>
+            </div>
+
+            <div class="bg-cyan-500/5 border border-cyan-500/10 p-2.5 rounded-xl text-xs space-y-1">
+              <span class="editable-field text-[10px] text-brand-blue font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g4-s4-notice-tag">📢 그룹 특이사항 / 개별 안내</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g4-s4-notice">자세 교정 진행 후 메인 스케줄을 시작합니다.</p>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="editable-field text-xs font-bold text-slate-400 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g4-s4-team-tag">팀 스케줄 (훈련 참석 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g4-s4-t1-head">1~2km (시작)</span>
+                  <span class="editable-field font-bold text-brand-blue" contenteditable="false" id="txt-g4-team-pace1">140초~144초 (5'55"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g4-s4-t2-head">3~4km (메인)</span>
+                  <span class="editable-field font-bold text-slate-200" contenteditable="false" id="txt-g4-team-pace2">134초~138초 (5'40"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs border border-emerald-500/20">
+                  <span class="editable-field font-bold text-emerald-400" contenteditable="false" id="lbl-g4-s4-t3-head">5~6km (스퍼트)</span>
+                  <span class="editable-field font-black text-emerald-400" contenteditable="false" id="txt-g4-team-pace3">126초~130초 (5'20"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2 border-t border-slate-800/80 pt-2">
+              <h4 class="editable-field text-xs font-bold text-slate-500 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g4-s4-ind-tag">개인 스케줄 (훈련 불참 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g4-ind-pace1">144초~148초 (6'05"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g4-ind-pace2">138초~142초 (5'50"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g4-ind-pace3">130초~134초 (5'30"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: GROUP 5 & TRAINING NOTES -->
+      <section id="slide-5" class="slide-element hidden flex flex-col justify-between h-full gap-4">
+        <div class="space-y-1">
+          <div class="editable-field text-brand-purple font-bold text-xs uppercase tracking-wider" contenteditable="false" id="txt-s5-tag">Safety & special group guide</div>
+          <h2 class="editable-field text-xl sm:text-2xl font-black text-white" contenteditable="false" id="txt-s5-title">5그룹 상세 & 안전 훈련 가이드</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-2 overflow-y-auto max-h-[380px] sm:max-h-none pr-1">
+          <!-- Group 5 Area -->
+          <div class="bg-slate-850/40 rounded-2xl p-4 border border-slate-800 space-y-3 shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-brand-purple"></span>
+                <h3 class="editable-field text-base font-bold text-slate-200" contenteditable="false" id="txt-g5-s5-title">5그룹 (이쯔)</h3>
+              </div>
+              <span class="editable-field text-xs bg-brand-purple/10 text-brand-purple font-bold px-2.5 py-0.5 rounded" contenteditable="false" id="txt-g5-s5-target">목표: 6km (부상조절)</span>
+            </div>
+
+            <div class="bg-purple-500/5 border border-purple-500/10 p-2.5 rounded-xl text-xs space-y-1">
+              <span class="editable-field text-[10px] text-brand-purple font-bold block uppercase tracking-wide" contenteditable="false" id="lbl-g5-s5-notice-tag">📢 그룹 특이사항 / 개별 안내</span>
+              <p class="editable-field text-slate-300 font-medium italic min-h-[1.5rem]" contenteditable="false" id="txt-g5-s5-notice">부상 방지를 위해 총 거리를 조절하여 보수적인 자세 교정 러닝으로 진행합니다.</p>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="editable-field text-xs font-bold text-slate-400 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g5-s5-team-tag">팀 스케줄 (훈련 참석 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g5-s5-t1-head">1~2km (시작)</span>
+                  <span class="editable-field font-bold text-brand-purple" contenteditable="false" id="txt-g5-s5-t1">158초~162초 (6'40"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field font-bold text-slate-300" contenteditable="false" id="lbl-g5-s5-t2-head">3~4km (메인)</span>
+                  <span class="editable-field font-bold text-slate-200" contenteditable="false" id="txt-g5-s5-t2">150초~154초 (6'20"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg text-xs border border-emerald-500/20">
+                  <span class="editable-field font-bold text-emerald-400" contenteditable="false" id="lbl-g5-s5-t3-head">5~6km (스퍼트)</span>
+                  <span class="editable-field font-black text-emerald-400" contenteditable="false" id="txt-g5-s5-t3">142초~146초 (6'00"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-2 border-t border-slate-800/80 pt-2">
+              <h4 class="editable-field text-xs font-bold text-slate-500 uppercase flex items-center gap-1" contenteditable="false" id="lbl-g5-s5-ind-tag">개인 스케줄 (훈련 불참 시)</h4>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g5-s5-i1-head">1~2km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g5-ind-pace1">162초~166초 (6'50"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g5-s5-i2-head">3~4km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g5-ind-pace2">154초~158초 (6'30"/km ±4초)</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg text-xs">
+                  <span class="editable-field text-slate-400" contenteditable="false" id="lbl-g5-s5-i3-head">5~6km</span>
+                  <span class="editable-field text-slate-300" contenteditable="false" id="txt-g5-ind-pace3">146초~150초 (6'10"/km ±4초)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- General Guidance -->
+          <div class="bg-gradient-to-br from-slate-900 to-indigo-950/40 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div class="space-y-2">
+              <span class="editable-field text-xs font-bold uppercase text-brand-orange tracking-widest flex items-center gap-1" contenteditable="false" id="txt-s5-alert-tag">핵심 안전 수칙</span>
+              <p class="editable-field text-xs sm:text-sm text-slate-300 leading-relaxed" contenteditable="false" id="txt-s5-alert-desc">
+                처음부터 과도하게 치고 나가면 후반 최대 심박수 도달 지점에서 다리가 잠겨 빌드업이 완전 무너집니다. 빌드업 페이스는 본인의 생각보다 "약간 느리다 싶을 정도의 완만하고 편안한 페이스"로 들어가셔야 목표 라스트 페이스 도달에 완벽히 성공합니다.
+              </p>
+            </div>
+            <div class="p-3 bg-indigo-950/40 border border-indigo-500/20 rounded-xl space-y-1 text-xs">
+              <span class="editable-field font-bold text-indigo-300 block" contenteditable="false" id="txt-s5-pm-tag">🏅 페이스메이커 알림:</span>
+              <p class="editable-field text-slate-400" contenteditable="false" id="txt-s5-pm-desc">각 주차 리딩 페이서 분들의 정확하고 고른 오차 관리 능력이 이번 지속주 훈련 성패의 80%를 결정합니다. 정속 주행 리딩에 신중을 기해주세요!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE NAVIGATION ================= -->
+      <footer class="flex items-center justify-between mt-4 pt-4 border-t border-slate-800/80">
+        <span class="hidden sm:inline text-xs text-slate-500 flex items-center gap-1">
+          <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> 좌우 방향키로 슬라이드 이동 가능
+        </span>
+        <span class="sm:hidden text-xs text-slate-500 flex items-center gap-1">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> 화면 스와이프로 넘기기
+        </span>
+        <div class="flex items-center gap-2">
+          <button onclick="window.goToSlide(1)" class="nav-dot w-2.5 h-2.5 rounded-full bg-indigo-600 transition-all"></button>
+          <button onclick="window.goToSlide(2)" class="nav-dot w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></button>
+          <button onclick="window.goToSlide(3)" class="nav-dot w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></button>
+          <button onclick="window.goToSlide(4)" class="nav-dot w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></button>
+          <button onclick="window.goToSlide(5)" class="nav-dot w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="window.prevSlide()" class="p-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg border border-slate-700/80 transition-all"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <span id="slide-counter" class="text-xs font-bold text-slate-300 px-3 py-1.5 bg-slate-850 border border-slate-800 rounded-lg">1 / 5</span>
+          <button onclick="window.nextSlide()" class="p-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg border border-slate-700/80 transition-all"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <!-- ================= MODALS ================= -->
+  <!-- Admin Modal -->
+  <div id="admin-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-4 shadow-2xl transform scale-95 transition-transform duration-300">
+      <div class="text-center space-y-2">
+        <div class="mx-auto w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-full flex items-center justify-center"><i data-lucide="lock" class="w-6 h-6"></i></div>
+        <h3 class="text-lg font-black text-white">운영자 인증</h3>
+        <p class="text-xs text-slate-400">화면 내 실시간 편집 기능을 활성화합니다.</p>
+      </div>
+      <div class="space-y-2">
+        <input id="admin-password" type="password" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') window.verifyAdmin()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-center text-white focus:outline-none focus:border-indigo-500 tracking-widest">
+        <div id="admin-error-msg" class="text-xs text-red-400 text-center hidden">비밀번호가 일치하지 않습니다.</div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="window.closeAdminModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold rounded-xl transition-all">취소</button>
+        <button onclick="window.verifyAdmin()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Custom Modal -->
+  <div id="confirm-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[80] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-4 shadow-2xl transform scale-95 transition-transform duration-300">
+      <div class="text-center space-y-2">
+        <div class="mx-auto w-12 h-12 bg-red-600/10 text-red-400 rounded-full flex items-center justify-center"><i data-lucide="alert-triangle" class="w-6 h-6"></i></div>
+        <h3 class="text-lg font-black text-white">조 삭제 확인</h3>
+        <p class="text-[11px] text-slate-400 leading-relaxed">이 훈련 조를 정말 삭제하시겠습니까?<br>삭제 시 즉시 모든 인원의 화면에서 사라집니다.</p>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="window.closeConfirmModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold rounded-xl transition-all">취소</button>
+        <button onclick="window.executeDeleteGroup()" class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-red-600/20">삭제 진행</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= AI COACH LAB SIDE PANEL ================= -->
+  <aside id="coach-lab" class="no-print fixed inset-y-0 right-0 w-full sm:w-[480px] bg-slate-950 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col justify-between">
+    <div class="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 bg-indigo-600 rounded text-white"><i data-lucide="flask-conical" class="w-4 h-4"></i></div>
+        <div>
+          <h3 class="text-sm font-black text-white">CRC (초보 러닝 크루) AI 스마트 연구실</h3>
+          <p class="text-[10px] text-slate-400">실시간 연동 보드</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.toggleAdminState()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all" title="운영자 인증 / 해제">
+          <i data-lucide="lock" id="icon-admin-toggle" class="w-4 h-4"></i>
+        </button>
+        <button onclick="window.toggleCoachLab()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+    </div>
+
+    <!-- Tabs (설정 탭 복구 완료) -->
+    <div class="flex border-b border-slate-800 bg-slate-900/40 text-[11px] sm:text-xs">
+      <button onclick="window.switchLabTab('tab-weather')" id="btn-tab-weather" class="flex-1 py-3 text-center border-b-2 border-indigo-500 font-bold text-white transition-all">날씨분석</button>
+      <button onclick="window.switchLabTab('tab-chat')" id="btn-tab-chat" class="flex-1 py-3 text-center border-b-2 border-transparent text-slate-400 font-medium hover:text-white transition-all">코치Q&A</button>
+      <button onclick="window.switchLabTab('tab-builder')" id="btn-tab-builder" class="operator-only hidden flex-1 py-3 text-center border-b-2 border-transparent text-brand-orange font-bold hover:text-white transition-all">신규조빌더</button>
+      <button onclick="window.switchLabTab('tab-settings')" id="btn-tab-settings" class="operator-only hidden flex-1 py-3 text-center border-b-2 border-transparent text-slate-400 font-medium hover:text-white transition-all"><i data-lucide="settings" class="w-3.5 h-3.5 inline-block"></i> 설정</button>
+    </div>
+
+    <div class="flex-grow overflow-y-auto p-4 space-y-4">
+      
+      <!-- TAB 1: WEATHER -->
+      <div id="tab-weather" class="tab-content space-y-4">
+        <button onclick="window.getRealtimeWeather()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+          <i data-lucide="cloud-lightning" class="w-4 h-4"></i> 대구 전체 기상 분석
+        </button>
+        
+        <div id="weather-output" class="bg-slate-900 border border-slate-850 p-4 rounded-2xl space-y-3">
+          <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
+            <div class="flex items-center gap-2 text-indigo-400 font-bold border-b border-slate-800 pb-2">
+              <i data-lucide="sun" class="w-4 h-4 animate-spin text-brand-orange"></i>
+              <span id="static-weather-time">[시간 로딩 중...] 실시간 기후 긴급 분석</span>
+            </div>
+            <p>
+              현재 <b class="text-indigo-400">대구광역시</b>의 기온 및 습도를 스캔 중입니다... 위 버튼을 눌러 최신 데이터를 받아주세요.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CHATBOT -->
+      <div id="tab-chat" class="tab-content hidden flex flex-col justify-between h-[360px] sm:h-[420px] bg-slate-900 border border-slate-850 rounded-2xl overflow-hidden p-3 gap-3">
+        <div id="chat-box" class="flex-grow overflow-y-auto space-y-2.5 pr-1 text-xs">
+          <div class="bg-indigo-950/30 p-3 rounded-xl border border-indigo-500/10 text-indigo-200 leading-relaxed shadow-sm">
+            <strong>🏅 AI 기반 코치:</strong> 환영합니다! 신발/기어 추천, 훈련법, 자세 교정 등 모든 질문을 환영합니다. (예: "포어풋 러너를 위한 최신 카본화 추천해줘")
+          </div>
+        </div>
+        <div class="flex gap-1.5 mt-auto relative">
+          <input id="chat-input" type="text" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') window.sendChat()" class="flex-grow bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-10 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors">
+          <button onclick="window.sendChat()" class="absolute right-1 top-1 bottom-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 rounded-md transition-all shadow-md"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+
+      <!-- TAB 3: BUILDER (Operator Only) -->
+      <div id="tab-builder" class="tab-content hidden space-y-4">
+        <div class="space-y-3 bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">새로운 조 이름</label>
+            <input id="build-group" type="text" placeholder="예: 번외조, 신규코칭조" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">총 거리 (km)</label>
+              <input id="build-distance" type="number" placeholder="8" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">최종 페이스 (/km 또는 숫자만)</label>
+              <input id="build-pace" type="text" placeholder="450 -> 4'50\"" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+          </div>
+          <button onclick="window.generateCustomGroup()" class="w-full bg-brand-orange hover:bg-orange-500 text-slate-950 font-black text-xs py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> 스마트 훈련 그룹 실시간 추가
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 4: SETTINGS (Operator Only) -->
+      <div id="tab-settings" class="tab-content hidden space-y-4">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-4">
+          <span class="text-xs font-bold text-indigo-400 block border-b border-slate-800 pb-2">🔑 비밀번호 설정</span>
+          <div class="space-y-2">
+            <input id="settings-cur-pw" type="password" placeholder="현재 비밀번호" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white">
+            <input id="settings-new-pw" type="password" placeholder="새 비밀번호" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white">
+            <button onclick="window.updateOperatorPassword()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition-all">변경 및 저장</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <div id="toast-container" class="no-print fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ================= LOGIC & FIREBASE REALTIME SCRIPT ================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // 1. 강제 전역 변수로 API Key 100% 고정 (모달 우회)
+    // -------------------------------------------------------------
+    const apiKey = ""; // 시스템 환경 필수 예약어 (무시)
+    
+    // ★★★ 여기에 입력하신 API 키가 완벽하게 내장되었습니다. ★★★
+    const HARDCODED_USER_KEY = "AQ.Ab8RN6JL3gHTzw5QiiQ8pEE6UVbe4HimR9ERTFHMEg8A5y7G0A"; 
+    
+    // 시스템 키가 비어있더라도 제공해주신 키를 최우선으로 강제 맵핑합니다.
+    window.activeApiKey = apiKey || HARDCODED_USER_KEY;
+    
+    // 외부 및 내부 환경에 맞춰 호환되는 AI 모델 자동 스위칭
+    const TARGET_AI_MODEL = apiKey ? "gemini-2.5-flash-preview-09-2025" : "gemini-2.5-flash";
+    
+    let isOperator = false;
+    let currentSlide = 1;
+    const totalSlides = 5;
+    let currentGroups = [];
+    window.syncedTexts = {}; 
+    window.animatedGroups = new Set(); 
+    window.targetDeleteId = null;
+
+    // 실시간 날짜 시간 계산 로직
+    window.getCurrentTimeStr = function() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const date = String(now.getDate()).padStart(2, '0');
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const day = days[now.getDay()];
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      return `${year}. ${month}. ${date} (${day}) ${hours}:${minutes}:${seconds} KST`;
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const timeEl = document.getElementById("static-weather-time");
+      if(timeEl) {
+        timeEl.innerText = `[${window.getCurrentTimeStr()} 기준 실시간 기후 분석]`;
+        // 시간 초단위 라이브 업데이트 기능
+        setInterval(() => {
+          if (!timeEl.innerText.includes("데이터 로드")) {
+             timeEl.innerText = `[${window.getCurrentTimeStr()} 기준 실시간 기후 분석]`;
+          }
+        }, 1000);
+      }
+    });
+
+    // 페이스 자율 변환 헬퍼
+    window.formatPaceInput = function(val) {
+      if (!val) return "";
+      let clean = val.replace(/\s/g, ''); 
+      if (/^\d+'\d+"$/.test(clean)) return clean; 
+      
+      let digits = clean.replace(/\D/g, '');
+      if (digits.length === 3) return `${digits[0]}'${digits.slice(1, 3)}"`;
+      else if (digits.length === 4) return digits.startsWith('0') ? `${digits[1]}'${digits.slice(2, 4)}"` : `${digits.slice(0, 2)}'${digits.slice(2, 4)}"`;
+      else if (digits.length === 1) return `${digits[0]}'00"`;
+      else if (digits.length === 2) return `${digits}'00"`;
+      
+      if (clean.includes(':')) {
+        let parts = clean.split(':');
+        let min = parts[0] || '0';
+        let sec = parts[1] || '00';
+        if (sec.length === 1) sec = '0' + sec;
+        return `${min}'${sec}"`;
+      }
+      return val;
+    };
+
+    // 지수 백오프 기반의 네트워크 재시도 패치 헬퍼
+    async function fetchWithBackoff(url, options, retries = 5, delay = 1000) {
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res;
+      } catch (err) {
+        if (retries === 1) throw err;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+      }
+    }
+
+    document.getElementById('build-pace').addEventListener('blur', function(e) {
+      e.target.value = window.formatPaceInput(e.target.value.trim());
+    });
+
+    window.showToast = function(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      let bgStyle = type === 'error' ? 'bg-slate-900 border-red-500/40 text-red-400' : (type === 'info' ? 'bg-slate-900 border-indigo-500/40 text-indigo-300' : 'bg-slate-900 border-emerald-500/40 text-emerald-300');
+      let icon = type === 'error' ? 'alert-triangle' : (type === 'info' ? 'info' : 'check-circle');
+      toast.className = `p-3 rounded-xl border shadow-lg ${bgStyle} flex items-center gap-2 text-xs font-bold pointer-events-auto transform transition-all duration-300 translate-y-10 opacity-0`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 50);
+      setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 4000);
+    };
+
+    window.goToSlide = function(num) {
+      currentSlide = num;
+      for (let i = 1; i <= totalSlides; i++) {
+        const slide = document.getElementById(`slide-${i}`);
+        if (i === num) { slide.classList.remove('hidden'); slide.classList.add('opacity-100'); }
+        else { slide.classList.add('hidden'); slide.classList.remove('opacity-100'); }
+      }
+      document.getElementById('slide-counter').innerText = `${num} / ${totalSlides}`;
+      document.getElementById('header-counter').innerText = `${num} / ${totalSlides}`;
+      document.querySelectorAll('.nav-dot').forEach((dot, idx) => {
+        dot.className = idx + 1 === num ? "nav-dot w-5 h-2.5 rounded-full bg-indigo-500 transition-all" : "nav-dot w-2.5 h-2.5 rounded-full bg-slate-700 transition-all";
+      });
+    };
+    window.nextSlide = () => window.goToSlide(currentSlide < totalSlides ? currentSlide + 1 : 1);
+    window.prevSlide = () => window.goToSlide(currentSlide > 1 ? currentSlide - 1 : totalSlides);
+
+    window.toggleCoachLab = () => document.getElementById('coach-lab').classList.toggle('translate-x-full');
+    window.switchLabTab = function(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      ['btn-tab-weather', 'btn-tab-builder', 'btn-tab-chat', 'btn-tab-settings'].forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) { btn.classList.remove('text-indigo-500', 'text-white', 'border-indigo-500'); btn.classList.add('border-transparent', btn.classList.contains('operator-only') ? 'text-brand-orange' : 'text-slate-400'); }
+      });
+      document.getElementById(tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('btn-' + tabId);
+      if(activeBtn) { activeBtn.classList.remove('border-transparent', 'text-slate-400', 'text-brand-orange'); activeBtn.classList.add('border-indigo-500', 'text-white'); }
+    };
+
+    window.toggleAdminState = () => isOperator ? window.logoutAdmin() : window.openAdminModal();
+    window.openAdminModal = () => {
+      const m = document.getElementById('admin-modal'); m.classList.remove('hidden'); document.getElementById('admin-error-msg').classList.add('hidden');
+      setTimeout(() => { m.classList.add('opacity-100'); m.querySelector('div').classList.remove('scale-95'); document.getElementById('admin-password').focus(); }, 50);
+    };
+    window.closeAdminModal = () => {
+      const m = document.getElementById('admin-modal'); m.classList.remove('opacity-100'); m.querySelector('div').classList.add('scale-95');
+      setTimeout(() => m.classList.add('hidden'), 300);
+    };
+    window.verifyAdmin = () => {
+      if (document.getElementById('admin-password').value === (localStorage.getItem("crc_operator_pw") || "crc1234")) {
+        isOperator = true; window.closeAdminModal();
+        document.body.classList.add('operator-enabled');
+        document.querySelectorAll('.editable-field').forEach(f => f.setAttribute('contenteditable', 'true'));
+        document.querySelectorAll('.operator-only').forEach(el => el.classList.remove('hidden'));
+        document.getElementById('operator-badge').classList.remove('hidden');
+        document.getElementById('edit-notice-hint').innerText = "(화면의 글자를 터치해 실시간 수정하세요)";
+        document.getElementById('edit-notice-hint').className = "text-xs font-bold text-emerald-400 animate-pulse";
+        const icon = document.getElementById('icon-admin-toggle'); icon.setAttribute('data-lucide', 'unlock'); icon.classList.add('text-emerald-400');
+        lucide.createIcons(); window.showToast("운영진 권한 활성화! 삭제 및 수정이 가능합니다.");
+      } else { document.getElementById('admin-error-msg').classList.remove('hidden'); }
+    };
+    window.logoutAdmin = () => {
+      isOperator = false; document.body.classList.remove('operator-enabled');
+      document.querySelectorAll('.editable-field').forEach(f => f.setAttribute('contenteditable', 'false'));
+      document.querySelectorAll('.operator-only').forEach(el => el.classList.add('hidden'));
+      document.getElementById('operator-badge').classList.add('hidden');
+      document.getElementById('edit-notice-hint').innerText = "(운영자 로그인 시 실시간 편집 활성화)";
+      document.getElementById('edit-notice-hint').className = "text-xs font-normal text-slate-500";
+      const icon = document.getElementById('icon-admin-toggle'); icon.setAttribute('data-lucide', 'lock'); icon.classList.remove('text-emerald-400');
+      lucide.createIcons(); window.switchLabTab('tab-weather'); window.showToast("편집 모드 해제", "info");
+    };
+    window.updateOperatorPassword = () => {
+      const cur = document.getElementById('settings-cur-pw').value, nxt = document.getElementById('settings-new-pw').value;
+      if (cur !== (localStorage.getItem("crc_operator_pw") || "crc1234")) return window.showToast("현재 비번 불일치", "error");
+      if (nxt.length < 4) return window.showToast("최소 4자 이상 입력", "error");
+      localStorage.setItem('crc_operator_pw', nxt); window.showToast("비밀번호 변경 완료");
+    };
+
+    document.addEventListener('keydown', e => {
+      if (['true'].includes(document.activeElement.getAttribute('contenteditable')) || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.key === 'ArrowRight' || e.key === 'Space') window.nextSlide();
+      else if (e.key === 'ArrowLeft') window.prevSlide();
+    });
+    let touchX = 0;
+    document.getElementById('gesture-area').addEventListener('touchstart', e => touchX = e.changedTouches[0].screenX, {passive: true});
+    document.getElementById('gesture-area').addEventListener('touchend', e => {
+      const endX = e.changedTouches[0].screenX;
+      if (endX < touchX - 60) window.nextSlide();
+      if (endX > touchX + 60) window.prevSlide();
+    }, {passive: true});
+
+    lucide.createIcons();
+    window.goToSlide(1);
+
+    // -------------------------------------------------------------
+    // 2. 파이어베이스(Firestore) 배포용 독립 세팅 공간
+    // -------------------------------------------------------------
+    window.mainDocRef = null;
+    
+    async function startFirebase() {
+      try {
+        const myFirebaseConfig = {}; 
+        const fbConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        
+        let appToUse;
+        if (myFirebaseConfig.apiKey) {
+          appToUse = initializeApp(myFirebaseConfig);
+        } else if (fbConfigStr) {
+          appToUse = initializeApp(JSON.parse(fbConfigStr));
+        }
+
+        if (!appToUse) {
+           currentGroups = JSON.parse(localStorage.getItem('crc_custom_groups') || '[]');
+           window.renderAllGroups();
+           document.querySelectorAll('.editable-field').forEach(field => {
+             if (!field.id) return;
+             const savedText = localStorage.getItem('crc_save_' + field.id);
+             if (savedText) field.innerText = savedText;
+           });
+           return;
+        }
+
+        const auth = getAuth(appToUse);
+        const db = getFirestore(appToUse);
+        
+        let boardPathId = "crc-crew-board-v1";
+        if (typeof __app_id !== 'undefined') boardPathId = __app_id;
+
+        window.mainDocRef = doc(db, 'artifacts', boardPathId, 'public', 'data', 'crc_board', 'main');
+
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+           await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+           await signInAnonymously(auth);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+          if (!user) return;
+          onSnapshot(window.mainDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data.texts) {
+                window.syncedTexts = data.texts;
+                for (const [id, text] of Object.entries(data.texts)) {
+                  const el = document.getElementById(id);
+                  if (el && document.activeElement !== el) el.innerText = text;
+                }
+              }
+              if (data.customGroups) {
+                currentGroups = data.customGroups;
+                window.renderAllGroups();
+              }
+            }
+          });
+        });
+      } catch (err) { console.error("DB Error: ", err); }
+    }
+    startFirebase();
+
+    document.addEventListener('blur', async function(e) {
+      if (e.target.classList.contains('editable-field') && isOperator) {
+        if (!e.target.id) return;
+        try {
+          if (window.mainDocRef) {
+            await setDoc(window.mainDocRef, { texts: { [e.target.id]: e.target.innerText } }, { merge: true });
+            window.showToast("서버에 실시간 동기화되었습니다.", "info");
+          } else {
+            localStorage.setItem('crc_save_' + e.target.id, e.target.innerText);
+          }
+        } catch(err) { window.showToast("저장 실패", "error"); }
+      }
+    }, true);
+    
+    document.addEventListener('keydown', function(e) {
+      if (e.target.classList.contains('editable-field') && e.key === 'Enter') {
+        e.preventDefault(); document.execCommand('insertLineBreak');
+      }
+    });
+
+    // -------------------------------------------------------------
+    // 3. 신규 커스텀 조 개설 및 삭제 로직
+    // -------------------------------------------------------------
+    window.renderAllGroups = function() {
+      const grid = document.getElementById('overview-grid');
+      grid.querySelectorAll('.custom-group-card').forEach(el => el.remove());
+      
+      currentGroups.forEach(groupObj => {
+        const card = document.createElement('div');
+        card.id = `custom-group-${groupObj.id}`;
+        card.className = "custom-group-card bg-slate-900/80 border-t-4 border-t-indigo-500 border-x border-b border-slate-800 p-4 rounded-xl flex flex-col justify-between gap-3 shadow-lg relative";
+        
+        if (!window.animatedGroups.has(groupObj.id)) {
+            card.classList.add('animate-bounce');
+            setTimeout(() => card.classList.remove('animate-bounce'), 2500);
+            window.animatedGroups.add(groupObj.id);
+        }
+
+        card.innerHTML = `
+          <button onclick="window.deleteCustomGroup('${groupObj.id}')" class="operator-only ${isOperator ? '' : 'hidden'} absolute -top-2 -right-2 bg-red-500/90 hover:bg-red-500 text-white rounded-full p-1.5 shadow-lg transition-all z-10 cursor-pointer" title="조 삭제">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+          <div class="space-y-1">
+            <span class="editable-field bg-indigo-500/10 text-indigo-400 text-[10px] font-black px-2 py-0.5 rounded-full" contenteditable="${isOperator}" id="badge-${groupObj.id}">${groupObj.groupName} (${groupObj.totalDistance}km)</span>
+            <p class="editable-field text-xs text-slate-400 font-semibold" contenteditable="${isOperator}" id="name-${groupObj.id}">AI 추천조</p>
+          </div>
+          <div class="bg-indigo-500/5 border border-indigo-500/10 p-2 rounded text-[11px] space-y-1">
+            <span class="editable-field text-[9px] text-indigo-400 font-bold block uppercase tracking-wide" contenteditable="${isOperator}" id="lbl-${groupObj.id}">📢 그룹 특이사항</span>
+            <p class="editable-field text-slate-300 font-medium leading-relaxed italic bg-slate-950/40 p-1.5 rounded min-h-[1.5rem]" contenteditable="${isOperator}" id="notice-${groupObj.id}">자세 교정 및 안전 빌드업 훈련</p>
+          </div>
+          <div class="space-y-2 bg-slate-950/40 p-2 rounded-lg text-xs">
+            <div>
+              <span class="editable-field block text-[9px] text-indigo-400 font-black" contenteditable="${isOperator}" id="sch-${groupObj.id}">AI SCHEDULE</span>
+              ${groupObj.phases.map((p, i) => `
+                <p class="editable-field text-slate-200" contenteditable="${isOperator}" id="pace-${i}-${groupObj.id}">${p.range}: ${p.pace} <span class="text-[10px] text-slate-400">(${p.laptime})</span></p>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+
+      document.querySelectorAll('.custom-group-card .editable-field').forEach(field => {
+        if (window.syncedTexts[field.id]) field.innerText = window.syncedTexts[field.id];
+      });
+    };
+
+    window.generateCustomGroup = async function() {
+      const gName = document.getElementById('build-group').value.trim();
+      const dist = document.getElementById('build-distance').value.trim();
+      const rawPace = document.getElementById('build-pace').value.trim();
+      
+      if (!gName || !dist || !rawPace) return window.showToast("필드를 빠짐없이 입력하세요.", "error");
+
+      const pace = window.formatPaceInput(rawPace);
+
+      window.showToast("AI가 스케줄을 연산하고 즉시 동기화합니다...", "info");
+
+      try {
+        const payload = {
+          contents: [{ parts: [{ text: `새로운 러닝조의 이름은 "${gName}", 총 거리 ${dist}km, 최종 목표 페이스는 ${pace}/km. 3단계 점진적 빌드업 계획을 오차범위 4초의 초단위 랩타임으로 구조화된 JSON 형태로 만들어줘.` }] }],
+          generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { groupName: { type: "STRING" }, totalDistance: { type: "STRING" }, phases: { type: "ARRAY", items: { type: "OBJECT", properties: { range: { type: "STRING" }, name: { type: "STRING" }, laptime: { type: "STRING" }, pace: { type: "STRING" } }, required: ["range", "name", "laptime", "pace"] } } }, required: ["groupName", "totalDistance", "phases"] } }
+        };
+
+        const res = await fetchWithBackoff(`https://generativelanguage.googleapis.com/v1beta/models/${TARGET_AI_MODEL}:generateContent?key=${window.activeApiKey}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const data = JSON.parse((await res.json()).candidates[0].content.parts[0].text);
+        
+        const groupObj = { id: 'dyn-' + Date.now(), groupName: data.groupName, totalDistance: data.totalDistance, phases: data.phases };
+        const newGroups = [...currentGroups, groupObj];
+        
+        if (window.mainDocRef) {
+          await setDoc(window.mainDocRef, { customGroups: newGroups }, { merge: true });
+        } else {
+          currentGroups = newGroups;
+          localStorage.setItem('crc_custom_groups', JSON.stringify(currentGroups));
+          window.renderAllGroups();
+        }
+        window.showToast("모든 크루원의 화면에 새 훈련조가 실시간 렌더링되었습니다!");
+      } catch (err) { 
+        window.showToast("신규조 생성 중 오류가 발생했습니다. API 호출 한도를 확인하세요.", "error"); 
+      }
+    };
+
+    window.deleteCustomGroup = function(id) {
+      window.targetDeleteId = id;
+      const m = document.getElementById('confirm-modal'); 
+      m.classList.remove('hidden');
+      setTimeout(() => { m.classList.add('opacity-100'); m.querySelector('div').classList.remove('scale-95'); }, 50);
+    };
+
+    window.closeConfirmModal = function() {
+      const m = document.getElementById('confirm-modal'); 
+      m.classList.remove('opacity-100'); m.querySelector('div').classList.add('scale-95');
+      setTimeout(() => { m.classList.add('hidden'); window.targetDeleteId = null; }, 300);
+    };
+
+    window.executeDeleteGroup = async function() {
+      if(!window.targetDeleteId) return;
+      const id = window.targetDeleteId;
+      window.closeConfirmModal();
+      
+      const newGroups = currentGroups.filter(g => g.id !== id);
+      try {
+        if(window.mainDocRef) {
+          await setDoc(window.mainDocRef, { customGroups: newGroups }, { merge: true });
+        } else {
+          currentGroups = newGroups;
+          localStorage.setItem('crc_custom_groups', JSON.stringify(currentGroups));
+          window.renderAllGroups();
+        }
+        window.showToast("해당 조가 성공적으로 삭제되었습니다.");
+      } catch (err) { window.showToast("삭제 에러", "error"); }
+    };
+
+    // -------------------------------------------------------------
+    // 4. 강제 API 통신 모듈 (날씨/코치)
+    // -------------------------------------------------------------
+    window.getRealtimeWeather = async () => {
+      const out = document.getElementById('weather-output'); out.classList.remove('hidden');
+      out.innerHTML = `<div class="flex justify-center py-6"><div class="animate-spin text-indigo-500"><i data-lucide="loader" class="w-6 h-6"></i></div></div>`; lucide.createIcons();
+      try {
+        const payload = { contents: [{ parts: [{ text: "대구 현재 기온, 습도에 따른 러닝 페이스 추천" }] }], tools: [{ google_search: {} }] };
+        const res = await fetchWithBackoff(`https://generativelanguage.googleapis.com/v1beta/models/${TARGET_AI_MODEL}:generateContent?key=${window.activeApiKey}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const textData = (await res.json()).candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '<b class="text-indigo-400">$1</b>');
+        
+        const timeHeader = `
+          <div class="flex items-center gap-2 text-indigo-400 font-bold border-b border-slate-800 pb-2 mb-3">
+            <i data-lucide="sun" class="w-4 h-4 animate-spin text-brand-orange"></i>
+            <span id="static-weather-time">[${window.getCurrentTimeStr()} 기준 실시간 기후 분석]</span>
+          </div>
+        `;
+        out.innerHTML = timeHeader + `<div class="text-xs text-slate-300 space-y-2 leading-relaxed whitespace-pre-wrap">${textData}</div>`;
+        lucide.createIcons();
+      } catch(e) { 
+        out.innerHTML = `<div class="text-xs text-red-400">기상 데이터 로드에 실패했습니다. 키를 확인해주세요.</div>`; 
+      }
+    };
+
+    window.sendChat = async () => {
+      const inp = document.getElementById('chat-input');
+      const box = document.getElementById('chat-box');
+      const q = inp.value.trim(); 
+      if(!q) return;
+
+      box.innerHTML += `<div class="bg-slate-800 border border-slate-750 p-2.5 rounded-xl ml-8 mt-2 text-right text-xs text-slate-200">${q}</div>`; 
+      inp.value = ""; 
+      box.scrollTop = box.scrollHeight;
+      
+      const loadId = 'loading-' + Date.now();
+      box.innerHTML += `<div id="${loadId}" class="text-slate-500 italic mt-3 animate-pulse text-xs text-center">AI 기반 코치가 최신 데이터를 분석 중입니다...</div>`;
+      box.scrollTop = box.scrollHeight;
+
+      try {
+        const systemPrompt = `당신은 CRC(초보 러닝 크루)의 AI 기반 러닝 코치이자 최신 러닝 기어(신발/장비) 분석 전문가입니다. 질문에 대해 매우 디테일하고 전문적인 수준의 조언을 제공하십시오. 예를 들어 러닝화 추천을 요청받으면, 주법(힐스트라이크, 미드풋, 포어풋), 발 모양, 내전 여부, 페이스 및 훈련 목적(조깅, 템포런, 레이싱 카본화 등)에 따라 세분화하여 최신 모델을 검색하여 추천하십시오. 답변은 사용자가 읽기 편하도록 불릿 포인트와 줄바꿈을 활용하여 구조화하십시오.`;
+        
+        const payload = { 
+          contents: [{ parts: [{ text: q }] }], 
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          tools: [{ google_search: {} }] 
+        };
+        
+        const res = await fetchWithBackoff(`https://generativelanguage.googleapis.com/v1beta/models/${TARGET_AI_MODEL}:generateContent?key=${window.activeApiKey}`, { 
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) 
+        });
+        
+        const data = await res.json();
+        document.getElementById(loadId)?.remove();
+
+        let answer = data.candidates[0].content.parts[0].text;
+        
+        answer = answer.replace(/\*\*(.*?)\*\*/g, '<b class="text-indigo-300">$1</b>')
+                       .replace(/\*(.*?)\*/g, '<i class="text-slate-400">$1</i>')
+                       .replace(/## (.*?)\n/g, '<strong class="text-indigo-400 block mt-3 mb-1 text-sm">$1</strong>')
+                       .replace(/### (.*?)\n/g, '<strong class="text-brand-orange block mt-2 mb-1 text-xs">$1</strong>')
+                       .replace(/\n/g, '<br>');
+
+        box.innerHTML += `<div class="bg-indigo-900/40 border border-indigo-950 p-3 rounded-xl mr-6 mt-2 text-xs text-slate-300 leading-relaxed shadow-sm"><strong>🏅 AI 기반 코치:</strong><div class="mt-1.5 space-y-1">${answer}</div></div>`;
+      } catch(e) { 
+        document.getElementById(loadId)?.remove();
+        box.innerHTML += `<div class="text-red-400 text-xs mt-2 text-center">코치 호출 중 연동 실패가 발생했습니다.</div>`; 
+      }
+      box.scrollTop = box.scrollHeight;
+    };
+  </script>
+</body>
+</html>
